@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'A serverless application to plot RI Utilization data point to a custom CloudWatch Metrics.'
+
+Resources:
+  RIUtilizationPlotter:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: './dst/'
+      FunctionName: 'ri-utilization-plotter'
+      Handler: 'ri-utilization-plotter'
+      Runtime: go1.x
+      Timeout: 30
+      Role: arn:aws:iam::123456789012:role/original
+      Environment:
+        Variables:
+          DD_API_KEY: datadog_api_key
+          DD_APP_KEY: datadog_app_key
