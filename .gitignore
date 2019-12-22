@@ -1,0 +1,5 @@
+.envrc*
+dst/*
+!dst/.gitkeep
+packaged.yaml
+cover.out
