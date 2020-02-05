@@ -38,6 +38,8 @@ fmtRoleArn         = "arn:aws:iam::%s:role/stsMonitor"
 
 ### Set SSM Parameter store with description in account which the assume role belongs to
 
+set in region: us-east-1 because AWS CostExplorer API works in region us-east-1.
+
 * datadog_api_key
 * datadog_app_key
 
