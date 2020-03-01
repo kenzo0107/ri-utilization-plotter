@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/costexplorer/costexploreriface"
 	"github.com/google/go-cmp/cmp"
@@ -27,7 +28,8 @@ func (m *mockCostExplorerClient) GetReservationCoverage(*costexplorer.GetReserva
 	return m.reservationCoverageOutput, m.Error
 }
 
-func TestFetchRIUtilizationPercentage(t *testing.T) {
+// 正常に RI Utilization 取得
+func TestFetchRIUtilizationPercentageSuccessfully(t *testing.T) {
 	m := NewCostexplorer(&mockCostExplorerClient{
 		reservationUtilizationOutput: &costexplorer.GetReservationUtilizationOutput{
 			Total: &costexplorer.ReservationAggregates{
@@ -77,12 +79,51 @@ func TestFetchRIUtilizationPercentage(t *testing.T) {
 		t.Error(err)
 	}
 
-	expected := float64(100)
+	expected := "100"
 	if diff := cmp.Diff(expected, utilPercentage); diff != "" {
 		t.Errorf("wront result : %s", diff)
 	}
 }
 
+// UtilizationsByTime が空 そもそも指定の service を利用していないケースは "" を返す
+func TestFetchRIUtilizationPercentageNoUseTheService(t *testing.T) {
+	m := NewCostexplorer(&mockCostExplorerClient{
+		reservationUtilizationOutput: &costexplorer.GetReservationUtilizationOutput{
+			Total: &costexplorer.ReservationAggregates{
+				UtilizationPercentage:     aws.String("100"),
+				PurchasedHours:            aws.String("48.0"),
+				TotalActualHours:          aws.String("48.0"),
+				UnusedHours:               aws.String("0.0"),
+				OnDemandCostOfRIHoursUsed: aws.String("0.3264"),
+				NetRISavings:              aws.String("0.11669041096774194"),
+				TotalPotentialRISavings:   aws.String("0.11669041096774194"),
+				AmortizedUpfrontFee:       aws.String("0.10410958903225806"),
+				AmortizedRecurringFee:     aws.String("0.1056"),
+				TotalAmortizedFee:         aws.String("0.20970958903225806"),
+			},
+			UtilizationsByTime: []*costexplorer.UtilizationByTime{},
+		},
+		Error: nil,
+	})
+
+	service := "Amazon Elastic Compute Cloud - Compute"
+
+	now := time.Now()
+	startDay := now.AddDate(0, 0, -2).Format("2006-01-02")
+	endDay := now.Format("2006-01-02")
+
+	utilPct, err := m.FetchRIUtilizationPercentage(service, startDay, endDay)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expected := ""
+	if diff := cmp.Diff(expected, utilPct); diff != "" {
+		t.Errorf("wront result : %s", diff)
+	}
+}
+
+// 開始期間と終了時間を最低でも 2 日間開けていないと RI Utilization 取得 API はエラーとなる
 func TestFetchRIUtilizationPercentageFailed(t *testing.T) {
 	m := NewCostexplorer(&mockCostExplorerClient{
 		reservationUtilizationOutput: &costexplorer.GetReservationUtilizationOutput{},
@@ -101,6 +142,7 @@ func TestFetchRIUtilizationPercentageFailed(t *testing.T) {
 	}
 }
 
+// 正常に RI Coverage が取得できる
 func TestFetchRICoveragePercentage(t *testing.T) {
 	m := NewCostexplorer(&mockCostExplorerClient{
 		reservationCoverageOutput: &costexplorer.GetReservationCoverageOutput{
@@ -114,7 +156,7 @@ func TestFetchRICoveragePercentage(t *testing.T) {
 						&costexplorer.ReservationCoverageGroup{
 							Attributes: map[string]*string{
 								"instanceType": aws.String("t3.nano"),
-								"region":       aws.String("ap-northeast-1"),
+								"region":       aws.String(endpoints.ApNortheast1RegionID),
 							},
 							Coverage: &costexplorer.Coverage{
 								CoverageHours: &costexplorer.CoverageHours{
@@ -164,16 +206,34 @@ func TestFetchRICoveragePercentage(t *testing.T) {
 		t.Error(err)
 	}
 
-	expected := []CostCoverage{
-		CostCoverage{
-			InstanceType:            "t3.nano",
-			Region:                  "ap-northeast-1",
-			CoverageHoursPercentage: 0,
+	expected := []*costexplorer.ReservationCoverageGroup{
+		&costexplorer.ReservationCoverageGroup{
+			Attributes: map[string]*string{
+				"instanceType": aws.String("t3.nano"),
+				"region":       aws.String(endpoints.ApNortheast1RegionID),
+			},
+			Coverage: &costexplorer.Coverage{
+				CoverageHours: &costexplorer.CoverageHours{
+					OnDemandHours:           aws.String("24"),
+					ReservedHours:           aws.String("0"),
+					TotalRunningHours:       aws.String("24"),
+					CoverageHoursPercentage: aws.String("0"),
+				},
+			},
 		},
-		CostCoverage{
-			InstanceType:            "t2.micro",
-			Region:                  "ap-northeast-3",
-			CoverageHoursPercentage: 50,
+		&costexplorer.ReservationCoverageGroup{
+			Attributes: map[string]*string{
+				"instanceType": aws.String("t2.micro"),
+				"region":       aws.String("ap-northeast-3"),
+			},
+			Coverage: &costexplorer.Coverage{
+				CoverageHours: &costexplorer.CoverageHours{
+					OnDemandHours:           aws.String("24"),
+					ReservedHours:           aws.String("24"),
+					TotalRunningHours:       aws.String("48"),
+					CoverageHoursPercentage: aws.String("50"),
+				},
+			},
 		},
 	}
 

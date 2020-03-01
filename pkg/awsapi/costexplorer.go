@@ -1,8 +1,6 @@
 package awsapi
 
 import (
-	"strconv"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/costexplorer/costexploreriface"
@@ -10,20 +8,13 @@ import (
 
 // CostexplorerIface : costexplorer interface
 type CostexplorerIface interface {
-	FetchRIUtilizationPercentage(service, startDay, endDay string) (float64, error)
-	FetchRICoveragePercentage(service, startDay, endDay string) ([]CostCoverage, error)
+	FetchRIUtilizationPercentage(service, startDay, endDay string) (string, error)
+	FetchRICoveragePercentage(service, startDay, endDay string) ([]*costexplorer.ReservationCoverageGroup, error)
 }
 
 // CostexplorerInstance : costexplorer instance
 type CostexplorerInstance struct {
 	client costexploreriface.CostExplorerAPI
-}
-
-// CostCoverage ... include cost coverage datas.
-type CostCoverage struct {
-	InstanceType            string
-	Region                  string
-	CoverageHoursPercentage float64
 }
 
 // NewCostexplorer ... generate new costexplorer client
@@ -34,8 +25,7 @@ func NewCostexplorer(client costexploreriface.CostExplorerAPI) CostexplorerIface
 }
 
 // FetchRIUtilizationPercentage ... fetch RI Utilization Percentage
-func (c *CostexplorerInstance) FetchRIUtilizationPercentage(service, startDay, endDay string) (float64, error) {
-	var riUtilizationPercentage float64
+func (c *CostexplorerInstance) FetchRIUtilizationPercentage(service, startDay, endDay string) (riUtilPct string, err error) {
 	input := &costexplorer.GetReservationUtilizationInput{
 		Granularity: aws.String("DAILY"),
 		TimePeriod: &costexplorer.DateInterval{
@@ -53,18 +43,19 @@ func (c *CostexplorerInstance) FetchRIUtilizationPercentage(service, startDay, e
 	}
 	r, err := c.client.GetReservationUtilization(input)
 	if err != nil {
-		return riUtilizationPercentage, err
+		return riUtilPct, err
 	}
 
-	riUtilizationPercentage, _ = strconv.ParseFloat(*r.Total.UtilizationPercentage, 64)
+	// You do not use this service
+	if len(r.UtilizationsByTime) == 0 {
+		return
+	}
 
-	return riUtilizationPercentage, nil
+	return *r.UtilizationsByTime[0].Total.UtilizationPercentage, nil
 }
 
 // FetchRICoveragePercentage ... fetch RI Coverage Percentage
-func (c *CostexplorerInstance) FetchRICoveragePercentage(service, startDay, endDay string) ([]CostCoverage, error) {
-	cc := []CostCoverage{}
-
+func (c *CostexplorerInstance) FetchRICoveragePercentage(service, startDay, endDay string) ([]*costexplorer.ReservationCoverageGroup, error) {
 	input := &costexplorer.GetReservationCoverageInput{
 		TimePeriod: &costexplorer.DateInterval{
 			Start: aws.String(startDay),
@@ -93,19 +84,8 @@ func (c *CostexplorerInstance) FetchRICoveragePercentage(service, startDay, endD
 	r, err := c.client.GetReservationCoverage(input)
 
 	if err != nil {
-		return cc, err
+		return []*costexplorer.ReservationCoverageGroup{}, err
 	}
 
-	for _, c := range r.CoveragesByTime {
-		for _, g := range c.Groups {
-			chp, _ := strconv.ParseFloat(*g.Coverage.CoverageHours.CoverageHoursPercentage, 64)
-			cc = append(cc, CostCoverage{
-				InstanceType:            *g.Attributes["instanceType"],
-				Region:                  *g.Attributes["region"],
-				CoverageHoursPercentage: chp,
-			})
-		}
-	}
-
-	return cc, nil
+	return r.CoveragesByTime[0].Groups, nil
 }
