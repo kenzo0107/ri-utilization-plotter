@@ -6,13 +6,23 @@ Resources:
   RIUtilizationPlotter:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: './dst/'
+      CodeUri: artifact
       FunctionName: 'ri-utilization-plotter'
       Handler: 'ri-utilization-plotter'
       Runtime: go1.x
-      Timeout: 30
+      Timeout: 300
       Role: arn:aws:iam::123456789012:role/original
       Environment:
         Variables:
           DD_API_KEY: datadog_api_key
           DD_APP_KEY: datadog_app_key
+      Events:
+        RIUtilizationPlotterCron:
+            Type: Schedule
+            Properties:
+                Schedule: cron(0 10,22 ? * * *)
+  RIUtilizationPlotterGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RIUtilizationPlotter}
+      RetentionInDays: 1
