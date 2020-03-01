@@ -83,6 +83,6 @@ func TestGetSSMParametersFailed(t *testing.T) {
 	keys := []string{"datadog_api_key", "datadog_app_key"}
 	_, err := m.GetSSMParameters(keys)
 	if err == nil {
-		t.Errorf("wrong result : err is nil : %s", err.Error())
+		t.Errorf("wrong result : err is nil")
 	}
 }
