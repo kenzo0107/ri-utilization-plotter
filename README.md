@@ -24,6 +24,10 @@ make local-invoke
 
 ## Deploy Lambda Function
 
+At first, execute `sam deploy --guided` and generate samconfig.toml.
+
+From then, run the following command:
+
 ```sh
 make deploy
 ```
