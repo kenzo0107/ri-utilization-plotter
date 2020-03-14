@@ -2,22 +2,47 @@ package main
 
 import (
 	"context"
-	"path/filepath"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/zorkian/go-datadog-api"
 )
 
 func TestHandler(t *testing.T) {
+	// datadog のエンドポイントへメトリクスをプロットする際の必ず200ステータスを返す（成功する）テストサーバ
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}))
+	defer ts.Close()
+
+	// PostMetrics が必ず成功する datadog Client
+	ddClient := &datadog.Client{
+		HttpClient: http.DefaultClient,
+	}
+	ddClient.SetBaseUrl(ts.URL)
+
+	// datadog のエンドポイントへメトリクスをプロットする際の必ず 403 ステータスを返す（失敗する）テストサーバ
+	tsFailed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(403)
+	}))
+	defer tsFailed.Close()
+
+	// PostMetrics が必ず失敗する datadog Client
+	ddClientFailed := &datadog.Client{
+		HttpClient: http.DefaultClient,
+	}
+	ddClientFailed.SetBaseUrl(tsFailed.URL)
+
 	services = []string{
 		"Amazon Elastic Compute Cloud - Compute",
 		"Amazon Redshift",
 	}
 	type args struct {
-		ctx                  context.Context
-		ssmDatadogAPIKeyName string
-		ssmDatadogAPPKeyName string
-		configAWSAccount     string
-		startDay, endDay     string
+		ctx              context.Context
+		startDay, endDay string
+		datadogClient    *datadog.Client
 	}
 
 	now := time.Now()
@@ -31,83 +56,39 @@ func TestHandler(t *testing.T) {
 		{
 			name: "successfully",
 			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "datadog_api_key",
-				ssmDatadogAPPKeyName: "datadog_app_key",
-				configAWSAccount:     filepath.Join("..", "..", "testdata", "awsaccount.yml"),
-				startDay:             now.AddDate(0, 0, -3).Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
+				ctx:           ctx,
+				startDay:      now.AddDate(0, 0, -3).Format("2006-01-02"),
+				endDay:        now.Format("2006-01-02"),
+				datadogClient: ddClient,
 			},
 			wantErr: false,
 		},
 		{
-			name: "not set Datadog API key name as environment values",
-			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "",
-				ssmDatadogAPPKeyName: "",
-				configAWSAccount:     "",
-				startDay:             now.AddDate(0, 0, -2).Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
-			},
-			wantErr: true,
-		},
-		{
-			name: "not found aws account configure file",
-			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "datadog_api_key",
-				ssmDatadogAPPKeyName: "datadog_app_key",
-				configAWSAccount:     filepath.Join("..", "..", "testdata", "failedAWSAccount.yml"),
-				startDay:             now.AddDate(0, 0, -2).Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
-			},
-			wantErr: true,
-		},
-		{
-			name: "set incorrect datadog api key",
-			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "incorrect_datadog_api_key",
-				ssmDatadogAPPKeyName: "incorrect_datadog_app_key",
-				configAWSAccount:     filepath.Join("..", "..", "testdata", "awsaccount.yml"),
-				startDay:             now.AddDate(0, 0, -2).Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
-			},
-			wantErr: true,
-		},
-		{
-			name: "not default account in awsaccount.yml",
-			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "datadog_api_key",
-				ssmDatadogAPPKeyName: "datadog_app_key",
-				configAWSAccount:     filepath.Join("..", "..", "testdata", "awsaccount2.yml"),
-				startDay:             now.AddDate(0, 0, -2).Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
-			},
-			wantErr: true,
-		},
-		{
 			name: "start date cannot be after 2 days ago",
 			args: args{
-				ctx:                  ctx,
-				ssmDatadogAPIKeyName: "datadog_api_key",
-				ssmDatadogAPPKeyName: "datadog_app_key",
-				configAWSAccount:     filepath.Join("..", "..", "testdata", "awsaccount.yml"),
-				startDay:             now.Format("2006-01-02"),
-				endDay:               now.Format("2006-01-02"),
+				ctx:           ctx,
+				startDay:      now.Format("2006-01-02"),
+				endDay:        now.Format("2006-01-02"),
+				datadogClient: ddClient,
+			},
+			wantErr: true,
+		},
+		{
+			name: "failed to post metric to datadog",
+			args: args{
+				ctx:           ctx,
+				startDay:      now.AddDate(0, 0, -2).Format("2006-01-02"),
+				endDay:        now.Format("2006-01-02"),
+				datadogClient: ddClientFailed,
 			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ssmDatadogAPIKeyName = tt.args.ssmDatadogAPIKeyName
-			ssmDatadogAPPKeyName = tt.args.ssmDatadogAPPKeyName
-			configAWSAccount = tt.args.configAWSAccount
 			startDay = tt.args.startDay
 			endDay = tt.args.endDay
+			datadogClient = tt.args.datadogClient
 			if err := handler(tt.args.ctx); (err != nil) != tt.wantErr {
 				t.Errorf("handler() error = %v, wantErr %v", err, tt.wantErr)
 			}
