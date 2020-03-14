@@ -7,38 +7,11 @@
 
 This project provides an AWS Lambda application that created and deployed by Serverless Framework for the following purpose:
 
-* Plot below metrics of your AWS Accounts to Datadog using cross-account access by AssumeRole
+* Plot below metrics of your AWS Account to Datadog
   - AWS Reserved Instance Utilization
   - AWS Reserved Instance Coverage
 
-## Preparation
-
-### Set Role
-
-Change `Role` to your role arn in template.yaml.
-
-To assume a role from a different account, your AWS account must be trusted by this role.
-
-```
-arn:aws:iam::123456789012:role/original
-```
-
-In other account, create and add the above role arn to below role's trusted entity.
-
-```
-arn:aws:iam::<cross account id>:role/stsMonitor
-```
-
-Change below line if you want to change role name in cross account
-
-* pkg/awsapi/sts.go
-```golang
-fmtRoleArn         = "arn:aws:iam::%s:role/stsMonitor"
-```
-
-### Set SSM Parameter store with description in account which the assume role belongs to
-
-set in region: us-east-1 because AWS CostExplorer API works in region us-east-1.
+### Set SSM Parameter store with description in your AWS account
 
 * datadog_api_key
 * datadog_app_key
@@ -49,7 +22,7 @@ set in region: us-east-1 because AWS CostExplorer API works in region us-east-1.
 make local-invoke
 ```
 
-## Deploy Lambda Function 
+## Deploy Lambda Function
 
 ```sh
 make deploy
