@@ -77,7 +77,7 @@ func TestHandler(t *testing.T) {
 			name: "failed to post metric to datadog",
 			args: args{
 				ctx:           ctx,
-				startDay:      now.AddDate(0, 0, -2).Format("2006-01-02"),
+				startDay:      now.AddDate(0, 0, -3).Format("2006-01-02"),
 				endDay:        now.Format("2006-01-02"),
 				datadogClient: ddClientFailed,
 			},

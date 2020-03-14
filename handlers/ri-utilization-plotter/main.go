@@ -57,36 +57,36 @@ func handler(ctx context.Context) error {
 	costexplorerClient := awsapi.NewCostexplorer(costexplorer.New(sess))
 
 	for _, service := range services {
-		// RI Utilization Coverage
+		// RI Utilization
 		utilPct, errRIUtil := costexplorerClient.FetchRIUtilizationPercentage(service, startDay, endDay)
 		if errRIUtil != nil {
 			return errors.Wrap(
 				errRIUtil,
-				fmt.Sprintf("in aws account: %s, service: %s on costexplorerClient.FetchRIUtilizationPercentage", configs.Envs.Profile, service),
+				fmt.Sprintf("service: %s on costexplorerClient.FetchRIUtilizationPercentage", service),
 			)
 		}
 
 		if utilPct != "" {
 			// utilPct == "" means that you do not use the service
 			utilPercentage, _ := strconv.ParseFloat(utilPct, 64)
-			if err := postMetricRIUtil(service, utilPercentage, configs.Envs.Profile); err != nil {
+			if err := postMetricRIUtil(service, utilPercentage, configs.Envs.TagKey, configs.Envs.TagVal); err != nil {
 				return errors.Wrap(err, "on postMetricRIUtil.")
 			}
 		}
 
-		// RI Cost Coverage
+		// RI Coverage
 		coveragePcts, errRICov := costexplorerClient.FetchRICoveragePercentage(service, startDay, endDay)
 		if errRICov != nil {
 			return errors.Wrap(
 				errRICov,
-				fmt.Sprintf("in aws account: %s, service: %s on costexplorerClient.FetchRICoveragePercentage", configs.Envs.Profile, service),
+				fmt.Sprintf("service: %s on costexplorerClient.FetchRICoveragePercentage", service),
 			)
 
 		}
 
 		for _, g := range coveragePcts {
 			// post metric of RI coverage to Datadog
-			if err := postMetricRICoverage(service, g, configs.Envs.Profile); err != nil {
+			if err := postMetricRICoverage(service, g, configs.Envs.TagKey, configs.Envs.TagVal); err != nil {
 				return errors.Wrap(err, "on postMetricRICoverage.")
 			}
 		}
@@ -95,13 +95,13 @@ func handler(ctx context.Context) error {
 }
 
 // postMetricRIUtil : post metric of RI utilization to Datadog
-func postMetricRIUtil(service string, utilPercentage float64, profile string) error {
+func postMetricRIUtil(service string, utilPercentage float64, tagKey, tagVal string) error {
 	metric := "aws.ri.utilization"
 	typeDatadog := "guage"
 
 	tags := []string{
-		utility.CombineStrings([]string{"account:", profile}),
-		profile,
+		utility.CombineStrings([]string{tagKey, ":", tagVal}),
+		tagVal,
 		utility.CombineStrings([]string{"service:", service}),
 	}
 
@@ -112,7 +112,7 @@ func postMetricRIUtil(service string, utilPercentage float64, profile string) er
 				{&unixTime, &utilPercentage},
 			},
 			Type: &typeDatadog,
-			Host: &profile,
+			Host: &tagVal,
 			Tags: tags,
 		},
 	}
@@ -120,7 +120,7 @@ func postMetricRIUtil(service string, utilPercentage float64, profile string) er
 }
 
 // postMetricRICoverage : post metric of RI utilization to Datadog
-func postMetricRICoverage(service string, g *costexplorer.ReservationCoverageGroup, profile string) error {
+func postMetricRICoverage(service string, g *costexplorer.ReservationCoverageGroup, tagKey, tagVal string) error {
 	metric := "aws.ri.coverage"
 	typeDatadog := "guage"
 
@@ -130,8 +130,8 @@ func postMetricRICoverage(service string, g *costexplorer.ReservationCoverageGro
 	tags := []string{
 		utility.CombineStrings([]string{"instance_type:", *g.Attributes["instanceType"]}),
 		utility.CombineStrings([]string{"region:", *g.Attributes["region"]}),
-		utility.CombineStrings([]string{"account:", profile}),
-		profile,
+		utility.CombineStrings([]string{tagKey, ":", tagVal}),
+		tagVal,
 		utility.CombineStrings([]string{"service:", service}),
 	}
 
@@ -142,7 +142,7 @@ func postMetricRICoverage(service string, g *costexplorer.ReservationCoverageGro
 				{&unixTime, &pct},
 			},
 			Type: &typeDatadog,
-			Host: &profile,
+			Host: &tagVal,
 			Tags: tags,
 		},
 	}
