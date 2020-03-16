@@ -1,16 +1,12 @@
-APP_NAME := ri-utilization-plotter
-VETARGS?=-all
-GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
+## Stack Name
+STACK_NAME := ri-utilization-plotter
 
-LOGICAL_FUNCTION_NAME := RIUtilizationPlotter
-S3_BUCKET := serverless.deployment.hoge
-
-.PHONY: deps
+## Install library for production
 deps:
 	go get -u ./...
+.PHONY: deps
 
-## Setup
-.PHONY: devel-deps
+## Install library for development
 devel-deps: deps
 	GO111MODULE=off go get \
 		golang.org/x/lint/golint \
@@ -20,65 +16,63 @@ devel-deps: deps
 		github.com/securego/gosec/cmd/gosec \
 		github.com/motemen/gobump/cmd/gobump \
 		github.com/Songmu/make2help/cmd/make2help
+.PHONY: devel-deps
 
-.PHONY: test
+## Execute unit test
 test: deps
 	go test -v -count=1 -cover ./...
+.PHONY: test
 
-.PHONY: cov
+## Output test coverage
 cov:
-	go test -coverprofile=cover.out ./...
+	go test -count=1 -coverprofile=cover.out ./...
 	go tool cover -html=cover.out
+.PHONY: cov
 
-.PHONY: clean
+## Clean up artifact
 clean:
-	rm -rf ./dst/${APP_NAME}
-	rm -rf ./dst/configs
+	rm -rf ./artifact/*
+.PHONY: clean
 
 ## Lint
-.PHONY: lint
 lint: devel-deps
 	go vet ./...
 	staticcheck ./...
 	errcheck ./...
-	gosec -quiet ./... 
+	gosec -quiet ./...
 	golint -set_exit_status ./...
+.PHONY: lint
 
-.PHONY: fmt
-fmt:
-	gofmt -s -l -w $(GOFMT_FILES)
-
+## Build
+build: build-ri-utilization-plotter
 .PHONY: build
-build:
-	GOOS=linux GOARCH=amd64 go build -o dst/${APP_NAME} ./src
-	cp -r ./configs ./dst
 
-.PHONY: validate
+## Build ri-utilization-plotter
+build-ri-utilization-plotter:
+	GOOS=linux GOARCH=amd64 go build -o artifact/ri-utilization-plotter ./handlers/ri-utilization-plotter
+	cp -r ./configs ./artifact
+.PHONY: build-ri-utilization-plotter
+
+## SAM Validate
 validate:
 	sam validate
+.PHONY: validate
 
-.PHONY: local-invoke
+## Invoke Lambda Function in local by SAM
 local-invoke: build
 	sam local invoke RIUtilizationPlotter -e testdata/event.json
+.PHONY: local-invoke
 
-.PHONY: package
-package:
-	sam package \
-		--template-file template.yaml \
-		--output-template-file packaged.yaml \
-		--s3-bucket ${S3_BUCKET}
-
+## Deploy by SAM
+deploy: build
+	sam deploy
 .PHONY: deploy
-deploy:
-	sam deploy \
-		--template-file packaged.yaml \
-		--stack-name ${APP_NAME} \
-		--capabilities CAPABILITY_IAM
 
-.PHONY: release
-release:
-	$(MAKE) clean
-	$(MAKE) validate
-	$(MAKE) build
-	$(MAKE) package
-	$(MAKE) deploy
+## Delete CloudFormation Stack
+delete:
+	aws cloudformation delete-stack --stack-name $(STACK_NAME)
+.PHONY: delete
+
+help:
+	@make2help $(MAKEFILE_LIST)
+.PHONY: help
