@@ -18,6 +18,8 @@ jobs:
       run: go test -v -count=1 -race -cover -coverprofile=coverage ./...
       env:
         AWS_REGION: ap-northeast-1
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
