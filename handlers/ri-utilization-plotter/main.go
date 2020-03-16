@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/pkg/errors"
@@ -30,6 +29,7 @@ var (
 	startDay      string
 	endDay        string
 	datadogClient *datadog.Client
+	sess          *session.Session = configs.Session
 )
 
 func init() {
@@ -50,10 +50,6 @@ func main() {
 }
 
 func handler(ctx context.Context) error {
-	sess := session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(configs.Envs.AWSRegionID),
-	}))
-
 	costexplorerClient := awsapi.NewCostexplorer(costexplorer.New(sess))
 
 	for _, service := range services {

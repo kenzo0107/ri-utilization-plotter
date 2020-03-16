@@ -22,6 +22,9 @@ type envParameters struct {
 	AWSRegionID       string `env:"AWS_REGION"`
 }
 
+// Session : session
+var Session *session.Session
+
 // Secrets : secrets
 var Secrets SecretParameters
 
@@ -38,11 +41,11 @@ func init() {
 	}
 	Envs = cfg
 
-	sess := session.Must(session.NewSession(&aws.Config{
+	Session = session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(Envs.AWSRegionID),
 	}))
 
-	ssmClient := awsapi.NewSSMClient(ssm.New(sess))
+	ssmClient := awsapi.NewSSMClient(ssm.New(Session))
 	s, err := ssmClient.GetSSMParameters([]string{
 		Envs.DatadogAPIKeyName,
 		Envs.DatadogAppKeyName,
