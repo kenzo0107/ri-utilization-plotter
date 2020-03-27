@@ -1,6 +1,8 @@
 ![logo](logo.png)
 
-[![GoDoc](https://godoc.org/github.com/kenzo0107/ri-utilization-plotter?status.svg)](https://godoc.org/github.com/kenzo0107/ri-utilization-plotter)
+[![](https://github.com/kenzo0107/ri-utilization-plotter/workflows/static%20check/badge.svg)](https://github.com/kenzo0107/ri-utilization-plotter/actions?query=workflow%3A%22static+check%22)
+[![](https://github.com/kenzo0107/ri-utilization-plotter/workflows/Test/badge.svg)](https://github.com/kenzo0107/ri-utilization-plotter/actions?query=workflow%3ATest)
+[![GoDoc](https://godoc.org/github.com/kenzo0107/ri-utilization-plotter?status.svg)](https://pkg.go.dev/github.com/kenzo0107/ri-utilization-plotter)
 [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/kenzo0107/ri-utilization-plotter/master/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kenzo0107/ri-utilization-plotter)](https://goreportcard.com/report/github.com/kenzo0107/ri-utilization-plotter)
 [![codecov](https://codecov.io/gh/kenzo0107/ri-utilization-plotter/branch/master/graph/badge.svg)](https://codecov.io/gh/kenzo0107/ri-utilization-plotter)
